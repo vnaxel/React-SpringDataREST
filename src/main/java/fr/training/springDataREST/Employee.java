@@ -13,6 +13,7 @@ public class Employee {
 	private String lastName;
 	private String description;
 	
+	@SuppressWarnings("unused")
 	private Employee() {
 	}
 	
