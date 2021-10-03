@@ -10,7 +10,11 @@ class App extends React.Component {
 
 	constructor(props) {
 		super(props);
-		this.state = {employees: []};
+		this.state = {employees: [], attributes: [], pageSize: 2, links: {}};
+		this.updatePageSize = this.updatePageSize.bind(this);
+		this.onCreate = this.onCreate.bind(this);
+		this.onDelete = this.onDelete.bind(this);
+		this.onNavigate = this.onNavigate.bind(this);
 	}
 
 	componentDidMount() { 
@@ -34,43 +38,187 @@ class App extends React.Component {
 				pageSize: pageSize,
 				links: employeeCollection.entity._links
 			});
-		})
+		});
+	}
+	
+	onCreate(newEmployee) {
+		follow(client, root, ['employees']).then(employeeCollection => client({
+			method: 'POST',
+			path: employeeCollection.entity._links.self.href,
+			entity: newEmployee,
+			headers: {'Content-Type': 'application/json'}
+		})).then( () => {
+			return follow(client, root, [
+				{rel: 'employees', params: {'size': this.state.pageSize}}
+			]);
+		}).done(res => {
+			if (typeof res.entity._links.last !== "undefined") {
+				this.onNavigate(res.entity._links.last.href);
+			} else {
+				this.onNavigate(res.entity._links.self.href);
+			}
+		});
+	}
+	
+	onDelete(employee) {
+		client({method: 'DELETE', path: employee._links.self.href}).done( () => {
+			this.loadFromServer(this.state.pageSize);
+		});
+	}
+	
+	onNavigate(navUri) {
+		client({
+			method: 'GET', 
+			path: navUri
+			}).done(employeeCollection => {
+				this.setState({
+					employees: employeeCollection.entity._embedded.employees,
+					attributes: this.state.attributes,
+					pageSize: this.state.pageSize,
+					links: employeeCollection.entity._links
+				});
+			});
+	}
+	
+	updatePageSize(pageSize) {
+		if (pageSize !== this.state.pageSize) {
+			this.loadFromServer(pageSize);
+		}
 	}
 
 	render() { 
 		return (
-			<EmployeeList employees={this.state.employees}/>
+			<div>
+			
+				<CreateDialog 
+				attributes={this.state.attributes} 
+				onCreate={this.onCreate}
+				/>
+				
+				<EmployeeList 
+				employees={this.state.employees}
+				links={this.state.links} 
+				pageSize={this.state.pageSize} 
+				onNavigate={this.onNavigate} 
+				onDelete={this.onDelete} 
+				updatePageSize={this.updatePageSize}
+				/>
+				
+			</div>		
 		)
 	}
 }
 
 class EmployeeList extends React.Component{
+	
+	constructor(props) {
+		super(props);
+		this.handleNavFirst = this.handleNavFirst.bind(this);
+		this.handleNavPrev = this.handleNavPrev.bind(this);
+		this.handleNavNext = this.handleNavNext.bind(this);
+		this.handleNavLast = this.handleNavLast.bind(this);
+		this.handleInput = this.handleInput.bind(this);
+	}
+	
+	handleInput(e) {
+		e.preventDefault();
+		const pageSize = ReactDOM.findDOMNode(this.refs.pageSize).value;
+		if (/^[0-9]+$/.test(pageSize)) {
+			this.props.updatePageSize(pageSize);
+		} else {
+			ReactDOM.findDOMNode(this.refs.pageSize).value = pageSize.substring(0, pageSize.length - 1);
+		}
+	}
+	
+	handleNavFirst(e) {
+		e.preventDefault();
+		this.props.onNavigate(this.props.links.first.href);
+	}
+	
+	handleNavPrev(e) {
+		e.preventDefault();
+		this.props.onNavigate(this.props.links.prev.href);
+	}
+
+	handleNavNext(e) {
+		e.preventDefault();
+		this.props.onNavigate(this.props.links.next.href);
+	}
+	
+	handleNavLast(e) {
+		e.preventDefault();
+		this.props.onNavigate(this.props.links.last.href);
+	}
+	
+	
+	
 	render() {
 		const employees = this.props.employees.map(employee =>
-			<Employee key={employee._links.self.href} employee={employee}/>
+			<Employee key={employee._links.self.href} employee={employee} onDelete={this.props.onDelete}/>
 		);
+		
+		const navLinks = [];
+		
+		if ("first" in this.props.links) {
+			navLinks.push(<button key="first" onClick={this.handleNavFirst}>&lt;&lt;</button>);
+		}
+		
+		if ("prev" in this.props.links) {
+			navLinks.push(<button key="prev" onClick={this.handleNavPrev}>&lt;</button>)
+		}
+		
+		if ("next" in this.props.links) {
+			navLinks.push(<button key="next" onClick={this.handleNavNext}>&gt;</button>)
+		}
+		
+		if ("last" in this.props.links) {
+			navLinks.push(<button key="last" onClick={this.handleNavLast}>&gt;&gt;</button>)
+		}
+		
 		return (
-			<table>
-				<tbody>
-					<tr>
-						<th>First Name</th>
-						<th>Last Name</th>
-						<th>Description</th>
-					</tr>
-					{employees}
-				</tbody>
-			</table>
+			<div>
+				
+				<label htmlFor="pageSize">Results on page </label>
+				<input name="pageSize" ref="pageSize" defaultValue={this.props.pageSize} onInput={this.handleInput}/>
+				
+				<table>
+					<tbody>
+						<tr>
+							<th>First Name</th>
+							<th>Last Name</th>
+							<th>Description</th>
+						</tr>
+						{employees}
+					</tbody>
+				</table>
+				
+				<div>
+					{navLinks}
+				</div>
+				
+			</div>
 		)
 	}
 }
 
 class Employee extends React.Component{
+	
+	constructor(props) {
+		super(props);
+		this.handleDelete = this.handleDelete.bind(this);
+	}
+	
+	handleDelete() {
+		this.props.onDelete(this.props.employee);
+	}
+	
 	render() {
 		return (
 			<tr>
 				<td>{this.props.employee.firstName}</td>
 				<td>{this.props.employee.lastName}</td>
 				<td>{this.props.employee.description}</td>
+				<td><button onClick={this.handleDelete}>Delete</button></td>
 			</tr>
 		)
 	}
