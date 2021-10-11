@@ -9,6 +9,8 @@
 		"react": "^16.5.2",
 		"react-dom": "^16.5.2",
 		"rest": "^1.3.2",
+		"sockjs-client": "^1.0.3",
+    	"stompjs": "^2.3.3",
 		"when": "^3.7.8"
 	},
 	"scripts": {
