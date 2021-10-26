@@ -21,6 +21,10 @@ public class DatabaseLoader implements CommandLineRunner {
 
 	@Override
 	public void run(String... args) throws Exception {
+		
+		if (managers.count() >= 1) {
+			return;
+		}
 	
 		Manager axel = this.managers.save(new Manager("axel", "1234", "ROLE_MANAGER"));
 		Manager debool = this.managers.save(new Manager("debool", "1234", "ROLE_MANAGER"));

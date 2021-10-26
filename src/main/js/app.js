@@ -159,9 +159,9 @@ class App extends React.Component {
 	
 	onDelete(employee) {
 		client({method: 'DELETE', path: employee.entity._links.self.href})
-			.done(res => { /* websocket handler update the UI */},
-			res => {
-				if (res.status.code === 403) {
+			.done(response => { /* websocket handler update the UI */},
+			response => {
+				if (response.status.code === 403) {
 					alert('ACCES DENIED: You are not authorized to delete ' + employee.entity._links.self.href);
 				}
 			});
